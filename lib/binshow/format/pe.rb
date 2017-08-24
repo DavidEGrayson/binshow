@@ -12,6 +12,11 @@ module Binshow
         SIGNATURE_LENGTH = 4
         SIGNATURE = "PE\0\0".freeze
         COFF_HEADER_LENGTH = 20
+        MACHINE_TYPES = {
+          0 => :unknown,
+          0x14c => :i386,
+          0x8664 => :amd64,
+        }
 
         def self.node_determine_type(node, file)
           node_offset = node.fetch(:offset)
@@ -37,7 +42,31 @@ module Binshow
         end
 
         def self.node_generate_attrs(node, file)
+          node_offset = node.fetch(:offset)
+          node_length = node.fetch(:length)
+          file.seek(node_offset + SIGNATURE_OFFSET_OFFSET)
+          signature_offset = file.read_u32
+          header_offset = signature_offset + SIGNATURE_LENGTH
+          file.seek(node_offset + header_offset)
+          header_bytes = file.read(COFF_HEADER_LENGTH)
+          header_data = header_bytes.unpack('S<S<L<L<L<S<S<')
+
+          attrs = {}
+
+          machine_type_code = header_data[0]
+          attrs[:machine_type] = MACHINE_TYPES.fetch(machine_type_code, :invalid)
+
+          characteristics_bitmap = header_data[6]
+          # TODO: decode the meaning of the bitmap instead of just storing
+          # a hex string
+          attrs[:chars_as_hex_string] = "%04x" % characteristics_bitmap
+
+          attrs
+        end
+
+        def self.node_generate_children(node, file)
           # TODO
+          []
         end
       end
     end

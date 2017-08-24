@@ -10,7 +10,7 @@ module Binshow
 
   def self.dump_node(node, file, output, indent)
     node_get_attrs(node, file)
-    dump_node_attrs(node, file, output, indent)
+    dump_node_attrs(node, output, indent)
 
     children = node_get_children(node, file)
     children.each do |child|
@@ -19,5 +19,13 @@ module Binshow
 
     # For better garbage collection.
     node_forget_children(node)
+  end
+
+  def self.dump_node_attrs(node, output, indent)
+    output.puts indent + node.fetch(:type).to_s
+    indent += DumpIndentation
+    node.fetch(:attrs).each do |k, v|
+      output.puts indent + "#{k}: #{v}"
+    end
   end
 end

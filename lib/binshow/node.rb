@@ -23,6 +23,10 @@ module Binshow
     end
   end
 
+  def self.node_forget_children(node)
+    node.delete(:children)
+  end
+
   def self.node_determine_type(node, file)
     errors = {}
     TypeFuncs.each do |type, type_funcs|
