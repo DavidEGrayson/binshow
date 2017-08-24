@@ -1,0 +1,4 @@
+#!/usr/bin/env ruby
+$LOAD_PATH << File.basename(__FILE__) + '../lib'
+require 'binshow/cli'
+Binshow::Cli.run
