@@ -23,12 +23,15 @@ module Binshow
   end
 
   def self.dump_node_attrs(node, output, indent)
-    output.puts indent + "#{node.fetch(:type)} " +
-                "(#{node.fetch(:offset)},+#{node.fetch(:length)})"
+    line = indent.dup
+    line << "#{node[:name]} " if node[:name]
+    line << "#{node.fetch(:type)} "
+    line << "(#{node.fetch(:offset)},+#{node.fetch(:length)})"
+    output.puts line
     indent += DumpIndentation
     node.each do |k, v|
       case
-      when %i(offset length children type lazy_children).include?(k)
+      when %i(offset length name type lazy_children children).include?(k)
         next
       when v.is_a?(String) #&& !v.ascii_only?
         v = v.inspect
