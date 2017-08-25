@@ -30,8 +30,8 @@ module Binshow
         offset: field_offset,
         length: length,
         type: type,
-        attrs: { name: name, value: value },
-        children: []
+        name: name,
+        value: value,
       }
 
       field_offset += length
@@ -46,7 +46,7 @@ module Binshow
       offset: offset,
       length: str.bytesize,
       type: :magic,
-      attrs: { value: str },
+      value: str,
       children: [],
     }
   end

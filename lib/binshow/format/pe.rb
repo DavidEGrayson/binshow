@@ -11,7 +11,7 @@ module Binshow
       module File
         SIGNATURE_OFFSET_OFFSET = 0x3c
         SIGNATURE_LENGTH = 4
-        SIGNATURE = "PE\0\0".freeze
+        SIGNATURE = "PE\0\0".force_encoding('BINARY').freeze
         COFF_HEADER_LENGTH = 20
         MACHINE_TYPES = {
           0 => :unknown,
@@ -39,7 +39,7 @@ module Binshow
           # Note: For efficiency, it would be nice to record the PE signature
           # location here, but we don't really have a safe place to put it.
 
-          return [:pe_file]
+          return { type: :pe_file, lazy_children: true }
         end
 
         def self.get_header(node, file)
@@ -54,24 +54,6 @@ module Binshow
           [header_data, header_offset]
         end
 
-        def self.node_generate_attrs(node, file)
-          header_data, _ = get_header(node, file)
-
-          attrs = {}
-
-          machine_type_code = header_data[0]
-          #attrs[:machine_type] = MACHINE_TYPES.fetch(machine_type_code, :invalid)
-
-          #attrs[:time_date_stamp] = header_data[2]
-
-          characteristics_bitmap = header_data[6]
-          # TODO: decode the meaning of the bitmap instead of just storing
-          # a hex string
-          #attrs[:chars_as_hex_string] = "%04x" % characteristics_bitmap
-
-          attrs
-        end
-
         def self.node_generate_children(node, file)
           node_offset = node.fetch(:offset)
           node_length = node.fetch(:length)
@@ -80,7 +62,7 @@ module Binshow
 
           children = []
 
-          children << Binshow.make_magic(header_offset - 4, "PE\0\0".force_encoding('BINARY'))
+          children << Binshow.make_magic(header_offset - 4, SIGNATURE)
 
           offset = node_offset + header_offset
           coff_header_members = Binshow.make_struct_nodes offset, file, [
@@ -97,7 +79,6 @@ module Binshow
             offset: offset,
             length: COFF_HEADER_LENGTH,
             type: :coff_header,
-            attrs: {},
             children: coff_header_members
           }
 
