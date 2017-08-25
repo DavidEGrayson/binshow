@@ -4,12 +4,11 @@ module Binshow
   DumpIndentation = '  '
 
   def self.dump_entire_file(file, output = $stdout, indent = '')
-    root = { offset: 0, length: file.size, lazy_type: true }
+    root = { offset: 0, length: file.size, type: :unknown_file, lazy_attrs: true }
     dump_node(root, file, output, indent)
   end
 
   def self.dump_node(node, file, output, indent)
-    node_get_type(node, file)
     node_get_attrs(node, file)
     dump_node_attrs(node, output, indent)
 
