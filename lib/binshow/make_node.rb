@@ -11,7 +11,7 @@ module Binshow
   def self.make_struct_nodes(offset, file, fields)
     field_types = fields.map { |f| f[1] }
     lengths = field_types.map { |t| FieldTypes.fetch(t)[0] }
-    struct_length = lengths.inject(:+)
+    struct_length = lengths.inject(0, :+)
 
     file.seek(offset)
     binary_data = file.read(struct_length)

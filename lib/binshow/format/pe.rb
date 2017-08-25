@@ -18,6 +18,7 @@ module Binshow
           0x14c => :i386,
           0x8664 => :amd64,
         }
+        SECTION_HEADER_LENGTH = 40
 
         def self.node_determine_type(node, file)
           node_offset = node.fetch(:offset)
@@ -46,7 +47,7 @@ module Binshow
           {
             offset: node_offset,
             length: signature_offset,
-            type: :dos_program,
+            type: :dos_stub,
             children: [
               {
                 offset: node_offset + 0x3c,
@@ -56,6 +57,24 @@ module Binshow
                 value: signature_offset,
               }
             ]
+          }
+        end
+
+        def self.make_optional_header(offset, length, file)
+          {
+            offset: offset,
+            length: length,
+            type: :pe_optional_header,
+            # TODO: fully decode the optional headers
+          }
+        end
+
+        def self.make_section_table(offset, section_count, file)
+          # TODO: new kind of lazy children for cases where there are O(N) children
+          {
+            offset: offset,
+            length: section_count * SECTION_HEADER_LENGTH,
+            type: :pe_section_table,
           }
         end
 
@@ -90,12 +109,22 @@ module Binshow
 
           file.seek(node_offset + SIGNATURE_OFFSET_OFFSET)
           signature_offset = file.read_u32
+          header_offset = node_offset + signature_offset + SIGNATURE_LENGTH
 
           children = []
           children << make_dos_stub(node_offset, signature_offset)
-          children << Binshow.make_magic(signature_offset, SIGNATURE)
-          header_offset = node_offset + signature_offset + SIGNATURE_LENGTH
+          children << Binshow.make_magic(node_offset + signature_offset, SIGNATURE)
           children << coff_header = make_coff_header(header_offset, file)
+
+          optional_offset = header_offset + coff_header.fetch(:length)
+          optional_length = coff_header[:children][5].fetch(:value)
+          children << make_optional_header(optional_offset, optional_length, file)
+
+          section_count = coff_header[:children][1].fetch(:value)
+          section_table_offset = optional_offset + optional_length
+
+          children << section_table =
+            make_section_table(section_table_offset, section_count, file)
 
           # TODO: other children
 
