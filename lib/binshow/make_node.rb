@@ -22,7 +22,7 @@ module Binshow
 
     stream = StringIO.new(binary_data)
     field_offset = offset
-    fields.map do |name, type|
+    nodes = fields.map do |name, type|
       length, unpack_code = FieldTypes.fetch(type)
       value = stream.read(length).unpack(unpack_code)[0]
 
@@ -38,6 +38,8 @@ module Binshow
 
       node
     end
+
+    [nodes, struct_length]
   end
 
   def self.make_magic(offset, str)

@@ -43,7 +43,7 @@ module Binshow
         end
 
         def self.make_dos_stub(node_offset, signature_offset)
-          dos_stub = {
+          {
             offset: node_offset,
             length: signature_offset,
             type: :dos_program,
@@ -60,7 +60,7 @@ module Binshow
         end
 
         def self.make_coff_header(offset, file)
-          coff_header_members = Binshow.make_struct_nodes offset, file, [
+          coff_header_members, length = Binshow.make_struct_nodes offset, file, [
             [:machine_type, :u16],
             [:number_of_sections, :u16],
             [:time_date_stamp, :u32],
@@ -70,14 +70,16 @@ module Binshow
             [:characteristics, :u16],
           ]
 
+          raise if length != COFF_HEADER_LENGTH
+
           mt = coff_header_members[0]
           code = mt.fetch(:value)
           mt[:type] = :coff_machine_type
           mt[:value] = MACHINE_TYPES.fetch(code, code)
 
-          coff_header = {
+          {
             offset: offset,
-            length: COFF_HEADER_LENGTH,
+            length: length,
             type: :coff_header,
             children: coff_header_members
           }
