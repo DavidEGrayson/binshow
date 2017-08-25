@@ -75,6 +75,11 @@ module Binshow
             [:characteristics, :u16],
           ]
 
+          mt = coff_header_members[0]
+          code = mt.fetch(:value)
+          mt[:type] = :coff_machine_type
+          mt[:value] = MACHINE_TYPES.fetch(code, code)
+
           coff_header = {
             offset: offset,
             length: COFF_HEADER_LENGTH,
