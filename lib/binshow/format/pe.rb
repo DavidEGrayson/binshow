@@ -42,29 +42,24 @@ module Binshow
           return { type: :pe_file, lazy_children: true }
         end
 
-        def self.get_header(node, file)
-          node_offset = node.fetch(:offset)
-          node_length = node.fetch(:length)
-          file.seek(node_offset + SIGNATURE_OFFSET_OFFSET)
-          signature_offset = file.read_u32
-          header_offset = signature_offset + SIGNATURE_LENGTH
-          file.seek(node_offset + header_offset)
-          header_bytes = file.read(COFF_HEADER_LENGTH)
-          header_data = header_bytes.unpack('S<S<L<L<L<S<S<')
-          [header_data, header_offset]
+        def self.make_dos_stub(node_offset, signature_offset)
+          dos_stub = {
+            offset: node_offset,
+            length: signature_offset,
+            type: :dos_program,
+            children: [
+              {
+                offset: node_offset + 0x3c,
+                length: 4,
+                type: :u32,
+                name: :signature_offset,
+                value: signature_offset,
+              }
+            ]
+          }
         end
 
-        def self.node_generate_children(node, file)
-          node_offset = node.fetch(:offset)
-          node_length = node.fetch(:length)
-
-          header_data, header_offset = get_header(node, file)
-
-          children = []
-
-          children << Binshow.make_magic(header_offset - 4, SIGNATURE)
-
-          offset = node_offset + header_offset
+        def self.make_coff_header(offset, file)
           coff_header_members = Binshow.make_struct_nodes offset, file, [
             [:machine_type, :u16],
             [:number_of_sections, :u16],
@@ -86,8 +81,19 @@ module Binshow
             type: :coff_header,
             children: coff_header_members
           }
+        end
 
-          children << coff_header
+        def self.node_generate_children(node, file)
+          node_offset = node.fetch(:offset)
+
+          file.seek(node_offset + SIGNATURE_OFFSET_OFFSET)
+          signature_offset = file.read_u32
+
+          children = []
+          children << make_dos_stub(node_offset, signature_offset)
+          children << Binshow.make_magic(signature_offset, SIGNATURE)
+          header_offset = node_offset + signature_offset + SIGNATURE_LENGTH
+          children << coff_header = make_coff_header(header_offset, file)
 
           # TODO: other children
 
