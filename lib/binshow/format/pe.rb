@@ -1,4 +1,5 @@
 require 'binshow/little_endian_data_reader'
+require 'binshow/make_node'
 
 module Binshow
   module Format
@@ -41,7 +42,7 @@ module Binshow
           return [:pe_file]
         end
 
-        def self.node_generate_attrs(node, file)
+        def self.get_header(node, file)
           node_offset = node.fetch(:offset)
           node_length = node.fetch(:length)
           file.seek(node_offset + SIGNATURE_OFFSET_OFFSET)
@@ -50,23 +51,61 @@ module Binshow
           file.seek(node_offset + header_offset)
           header_bytes = file.read(COFF_HEADER_LENGTH)
           header_data = header_bytes.unpack('S<S<L<L<L<S<S<')
+          [header_data, header_offset]
+        end
+
+        def self.node_generate_attrs(node, file)
+          header_data, _ = get_header(node, file)
 
           attrs = {}
 
           machine_type_code = header_data[0]
-          attrs[:machine_type] = MACHINE_TYPES.fetch(machine_type_code, :invalid)
+          #attrs[:machine_type] = MACHINE_TYPES.fetch(machine_type_code, :invalid)
+
+          #attrs[:time_date_stamp] = header_data[2]
 
           characteristics_bitmap = header_data[6]
           # TODO: decode the meaning of the bitmap instead of just storing
           # a hex string
-          attrs[:chars_as_hex_string] = "%04x" % characteristics_bitmap
+          #attrs[:chars_as_hex_string] = "%04x" % characteristics_bitmap
 
           attrs
         end
 
         def self.node_generate_children(node, file)
-          # TODO
-          []
+          node_offset = node.fetch(:offset)
+          node_length = node.fetch(:length)
+
+          header_data, header_offset = get_header(node, file)
+
+          children = []
+
+          children << Binshow.make_magic(header_offset - 4, "PE\0\0".force_encoding('BINARY'))
+
+          offset = node_offset + header_offset
+          coff_header_members = Binshow.make_struct_nodes offset, file, [
+            [:machine_type, :u16],
+            [:number_of_sections, :u16],
+            [:time_date_stamp, :u32],
+            [:pointer_to_symbol_table, :u32],
+            [:number_of_symbols, :u32],
+            [:size_of_optional_header, :u16],
+            [:characteristics, :u16],
+          ]
+
+          coff_header = {
+            offset: offset,
+            length: COFF_HEADER_LENGTH,
+            type: :coff_header,
+            attrs: {},
+            children: coff_header_members
+          }
+
+          children << coff_header
+
+          # TODO: other children
+
+          children
         end
       end
     end

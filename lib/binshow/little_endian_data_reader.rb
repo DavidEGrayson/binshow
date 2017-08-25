@@ -1,5 +1,5 @@
 module Binshow
-  module LittleEndianDataReader
+  module LittleEndianDataReader  # TODO: maybe just use FieldTypes instead of this
     refine IO do
       def read_u8
         read(1).ord
@@ -23,10 +23,6 @@ module Binshow
 
       def read_u32
         read(4).unpack('L<')[0]
-      end
-
-      def read_long
-        read(8).unpack('q<')[0]
       end
     end
   end

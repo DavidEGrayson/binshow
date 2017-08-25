@@ -22,9 +22,14 @@ module Binshow
   end
 
   def self.dump_node_attrs(node, output, indent)
-    output.puts indent + node.fetch(:type).to_s
+    output.puts indent + "#{node.fetch(:type)} " +
+                "(#{node.fetch(:offset)},+#{node.fetch(:length)})"
     indent += DumpIndentation
     node.fetch(:attrs).each do |k, v|
+      case
+      when v.is_a?(String) #&& !v.ascii_only?
+        v = v.inspect
+      end
       output.puts indent + "#{k}: #{v}"
     end
   end
