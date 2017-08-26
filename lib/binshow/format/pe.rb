@@ -116,7 +116,7 @@ module Binshow
           children << coff_header = make_coff_header(header_offset, file)
 
           optional_offset = header_offset + coff_header.fetch(:length)
-          optional_length = coff_header[:children][5].fetch(:value)
+          optional_length = Binshow.fetch_child_value(coff_header, file, :size_of_optional_header)
           children << make_optional_header(optional_offset, optional_length, file)
 
           section_count = Binshow.fetch_child_value(coff_header, file, :number_of_sections)
