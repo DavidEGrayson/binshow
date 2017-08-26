@@ -31,12 +31,9 @@ module Binshow
     end
   end
 
-  def self.fetch_child_value(node, file, child_name)
-    node_each_child(node, file) do |child|
-      if child[:name] == child_name
-        return child.fetch(:value)
-      end
+  def self.find_child(node, file, child_name)
+    node_each_child(node, file).find do |child|
+      child[:name] == child_name
     end
-    nil
   end
 end
