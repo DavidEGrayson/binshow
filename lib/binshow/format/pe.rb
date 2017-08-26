@@ -1,5 +1,6 @@
 require 'binshow/little_endian_data_reader'
 require 'binshow/make_node'
+require 'binshow/template'
 
 module Binshow
   module Format
@@ -20,7 +21,6 @@ module Binshow
       using LittleEndianDataReader
 
       module File
-
         def self.node_determine_type(node, file)
           node_offset = node.fetch(:offset)
           node_length = node.fetch(:length)
@@ -142,10 +142,36 @@ module Binshow
               offset: node.fetch(:offset) + offset,
               length: SECTION_HEADER_LENGTH,
               type: :pe_section_header,
+              lazy_children: true,
             }
             yield header
             offset += SECTION_HEADER_LENGTH
           end
+        end
+      end
+
+      module SectionHeader
+        Template = Binshow.prepare_template [
+          {
+            length: 8,
+            type: :str_utf8_zero_padded,
+            name: :name,
+            value: -> (d) { d.force_encoding('UTF-8').gsub(/\0+\Z/, '') }
+          },
+          TemplateU32.merge(name: :virtual_size),
+          TemplateU32.merge(name: :virtual_address),
+          TemplateU32.merge(name: :size_of_raw_data),
+          TemplateU32.merge(name: :pointer_to_raw_data),
+          TemplateU32.merge(name: :pointer_to_relocations),
+          TemplateU32.merge(name: :pointer_to_line_numbers),
+          TemplateU16.merge(name: :number_of_relocations),
+          TemplateU16.merge(name: :number_of_line_numbers),
+          TemplateU32.merge(name: :characteristics),
+        ]
+
+        def self.node_generate_children(node, file)
+          fake_node = Binshow.fill_in_template(Template, node.fetch(:offset), file)
+          fake_node.fetch(:children)
         end
       end
     end

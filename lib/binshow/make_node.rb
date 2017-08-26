@@ -8,6 +8,7 @@ module Binshow
     u32: [4, 'L<'],
   }
 
+  # TODO: remove this thing, use template.rb
   def self.make_struct_nodes(offset, file, fields)
     field_types = fields.map { |f| f[1] }
     lengths = field_types.map { |t| FieldTypes.fetch(t)[0] }
