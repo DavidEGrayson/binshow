@@ -84,7 +84,6 @@ module Binshow
         end
 
         def self.make_section_table(offset, section_count, file)
-          # TODO: new kind of lazy children for cases where there are O(N) children
           {
             offset: offset,
             length: section_count * SECTION_HEADER_LENGTH,
@@ -120,7 +119,7 @@ module Binshow
           optional_length = coff_header[:children][5].fetch(:value)
           children << make_optional_header(optional_offset, optional_length, file)
 
-          section_count = coff_header[:children][1].fetch(:value)
+          section_count = Binshow.fetch_child_value(coff_header, file, :number_of_sections)
           section_table_offset = optional_offset + optional_length
 
           children << section_table =
