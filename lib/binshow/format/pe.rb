@@ -18,6 +18,19 @@ module Binshow
       }
       SECTION_HEADER_LENGTH = 40
 
+      CoffHeaderTemplate = Binshow.prepare_template \
+        length: COFF_HEADER_LENGTH,
+        type: :coff_header,
+        children: [
+          TemplateU16.merge(name: :machine_type),
+          TemplateU16.merge(name: :number_of_sections),
+          TemplateU32.merge(name: :time_date_stamp),
+          TemplateU32.merge(name: :pointer_to_symbol_table),
+          TemplateU32.merge(name: :number_of_symbols),
+          TemplateU16.merge(name: :size_of_optional_header),
+          TemplateU16.merge(name: :characteristics),
+        ]
+
       using LittleEndianDataReader
 
       module File
@@ -81,29 +94,14 @@ module Binshow
         end
 
         def self.make_coff_header(offset, file)
-          coff_header_members, length = Binshow.make_struct_nodes offset, file, [
-            [:machine_type, :u16],
-            [:number_of_sections, :u16],
-            [:time_date_stamp, :u32],
-            [:pointer_to_symbol_table, :u32],
-            [:number_of_symbols, :u32],
-            [:size_of_optional_header, :u16],
-            [:characteristics, :u16],
-          ]
+          coff_header = Binshow.fill_in_template(CoffHeaderTemplate, offset, file)
 
-          raise if length != COFF_HEADER_LENGTH
-
-          mt = coff_header_members[0]
+          mt = coff_header.fetch(:children)[0]
           code = mt.fetch(:value)
           mt[:type] = :coff_machine_type
           mt[:value] = MACHINE_TYPES.fetch(code, code)
 
-          {
-            offset: offset,
-            length: length,
-            type: :coff_header,
-            children: coff_header_members
-          }
+          coff_header
         end
 
         def self.node_generate_children(node, file)

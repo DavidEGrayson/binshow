@@ -2,13 +2,13 @@ module Binshow
   TemplateU32 = {
     length: 4,
     type: :u32,
-    value: -> (d) { d.unpack('L<')[0] }
+    value: -> (d) { d.unpack('L<')[0] || raise },
   }.freeze
 
   TemplateU16 = {
     length: 2,
     type: :u16,
-    value: -> (d) { d.unpack('L<')[0] }
+    value: -> (d) { d.unpack('s<')[0] || raise },
   }.freeze
 
   def self.prepare_template(template)
@@ -35,7 +35,9 @@ module Binshow
       template[:children] = prepared_children
 
       if template[:length] && template[:length] != total_length
-        raise "Template length mismatch for #{orig_template.inspect}."
+        raise "Template length mismatch: " +
+              "#{template[:length]} != #{total_length} " +
+              "for #{orig_template.inspect}."
       end
       template[:length] = total_length
     end
@@ -59,6 +61,7 @@ module Binshow
       if v.is_a?(Proc)
         fragment = data[template.fetch(:offset), template.fetch(:length)]
         template[k] = v.call(fragment)
+        raise "Got nil for input #{fragment.inspect} to #{template.inspect}" if template[k].nil?
       end
     end
 
