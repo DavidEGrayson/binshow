@@ -6,19 +6,20 @@ module Binshow
     # Portable Executable - Windows .exe or .dll file
     # https://msdn.microsoft.com/en-us/library/windows/desktop/ms680547.aspx
     module Pe
+      SIGNATURE_OFFSET_OFFSET = 0x3c
+      SIGNATURE_LENGTH = 4
+      SIGNATURE = "PE\0\0".force_encoding('BINARY').freeze
+      COFF_HEADER_LENGTH = 20
+      MACHINE_TYPES = {
+        0 => :unknown,
+        0x14c => :i386,
+        0x8664 => :amd64,
+      }
+      SECTION_HEADER_LENGTH = 40
+
       using LittleEndianDataReader
 
       module File
-        SIGNATURE_OFFSET_OFFSET = 0x3c
-        SIGNATURE_LENGTH = 4
-        SIGNATURE = "PE\0\0".force_encoding('BINARY').freeze
-        COFF_HEADER_LENGTH = 20
-        MACHINE_TYPES = {
-          0 => :unknown,
-          0x14c => :i386,
-          0x8664 => :amd64,
-        }
-        SECTION_HEADER_LENGTH = 40
 
         def self.node_determine_type(node, file)
           node_offset = node.fetch(:offset)
@@ -75,6 +76,7 @@ module Binshow
             offset: offset,
             length: section_count * SECTION_HEADER_LENGTH,
             type: :pe_section_table,
+            lazy_children: true,
           }
         end
 
@@ -129,6 +131,21 @@ module Binshow
           # TODO: other children
 
           children
+        end
+      end
+
+      module SectionTable
+        def self.node_each_child(node, file)
+          offset = 0
+          while offset < node.fetch(:length)
+            header = {
+              offset: node.fetch(:offset) + offset,
+              length: SECTION_HEADER_LENGTH,
+              type: :pe_section_header,
+            }
+            yield header
+            offset += SECTION_HEADER_LENGTH
+          end
         end
       end
     end

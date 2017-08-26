@@ -1,27 +1,33 @@
 require 'binshow/type_funcs'
 
 module Binshow
-  def self.node_type_funcs(node, file)
+  def self.node_type_funcs(node)
     TypeFuncs.fetch(node.fetch(:type))
   end
 
   def self.node_get_attrs(node, file)
     while node[:lazy_attrs]
       node.delete :lazy_attrs
-      node.merge! node_type_funcs(node, file).node_generate_attrs(node, file)
+      node.merge! node_type_funcs(node).node_generate_attrs(node, file)
     end
     node
   end
 
-  def self.node_get_children(node, file)
-    if node[:lazy_children]
-      node[:children] = node_type_funcs(node, file).node_generate_children(node, file)
-      node.delete :lazy_children
+  def self.node_each_child(node, file, &proc)
+    if node[:children]
+      return node[:children].each(&proc)
     end
-    node.fetch(:children, [])
-  end
 
-  def self.node_forget_children(node)
-    node.delete(:children)
+    if node[:lazy_children]
+      funcs = node_type_funcs(node)
+
+      if funcs.respond_to?(:node_generate_children)
+        node[:children] = funcs.node_generate_children(node, file)
+        node.delete :lazy_children
+        return node[:children].each(&proc)
+      else
+        return funcs.node_each_child(node, file, &proc)
+      end
+    end
   end
 end

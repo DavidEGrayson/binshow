@@ -5,5 +5,6 @@ module Binshow
   TypeFuncs = {
     unknown_file: Format::UnknownFile,
     pe_file: Format::Pe::File,
+    pe_section_table: Format::Pe::SectionTable,
   }
 end

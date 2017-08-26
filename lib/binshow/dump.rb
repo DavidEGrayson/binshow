@@ -12,13 +12,9 @@ module Binshow
     node_get_attrs(node, file)
     dump_node_attrs(node, output, indent)
 
-    children = node_get_children(node, file)
-    children.each do |child|
+    node_each_child(node, file) do |child|
       dump_node(child, file, output, indent + DumpIndentation)
     end
-
-    # For better garbage collection.
-    node_forget_children(node)
   end
 
   def self.dump_node_attrs(node, output, indent)
