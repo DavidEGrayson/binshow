@@ -24,6 +24,24 @@ module Binshow
       def read_u32
         read(4).unpack('L<')[0]
       end
+
+      def read_utf8_string
+        str = ""
+        while true
+          chunk = read(1024)
+          if !chunk
+            raise "Null termination not found while reading UTF-8 string."
+          end
+          end_index = chunk.index("\0")
+          if end_index
+            end_index += str.size
+            str << chunk
+            return str[0, end_index].force_encoding("UTF-8")
+          else
+            str << chunk
+          end
+        end
+      end
     end
   end
 end

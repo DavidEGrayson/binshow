@@ -31,7 +31,7 @@ module Binshow
     output.puts line
     indent += DumpIndentation
     node.each do |k, v|
-      if %i(offset length name type lazy_children children value).include?(k)
+      if %i(offset length name type lazy_children children value cross_ref).include?(k)
         next
       end
       output.puts indent + "#{k}: #{dump_printable(v)}"

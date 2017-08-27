@@ -95,12 +95,16 @@ module Binshow
           }
         end
 
-        def self.make_section_table(offset, section_count, file)
+        def self.make_section_table(offset, section_count, string_table, file)
           {
             offset: offset,
             length: section_count * SECTION_HEADER_LENGTH,
             type: :pe_section_table,
             lazy_children: true,
+            cross_ref: {
+              string_table_offset: string_table.fetch(:offset),
+              string_table_length: string_table.fetch(:length),
+            }
           }
         end
 
@@ -125,22 +129,11 @@ module Binshow
           signature_offset = file.read_u32
           header_offset = node_offset + signature_offset + SIGNATURE_LENGTH
 
-          children = []
-          children << make_dos_stub(node_offset, signature_offset)
-          children << Binshow.make_magic(node_offset + signature_offset, SIGNATURE)
-          children << coff_header = make_coff_header(header_offset, file)
+          dos_stub = make_dos_stub(node_offset, signature_offset)
+          magic = Binshow.make_magic(node_offset + signature_offset, SIGNATURE)
+          coff_header = make_coff_header(header_offset, file)
 
           hv = -> (n) { Binshow.find_child(coff_header, file, n).fetch(:value) }
-
-          optional_offset = header_offset + coff_header.fetch(:length)
-          optional_length = hv.(:size_of_optional_header)
-          children << make_optional_header(optional_offset, optional_length, file)
-
-          section_table_offset = optional_offset + optional_length
-          section_count = hv.(:number_of_sections)
-
-          children << section_table =
-            make_section_table(section_table_offset, section_count, file)
 
           symbol_table_offset = hv.(:pointer_to_symbol_table)
           symbol_count = hv.(:number_of_symbols)
@@ -148,15 +141,26 @@ module Binshow
           if symbol_table_offset != 0
             string_table_offset = symbol_table_offset + symbol_count * COFF_SYMBOL_LENGTH
 
-            #children << symbol_table =
-            #  make_symbol_table(symbol_table_offset, symbol_count, file)
-            # TODO:
-            children << string_table =
-              make_string_table(string_table_offset, file)
+            symbol_table = nil # tmphax
+            # TODO: symbol_table = make_symbol_table(symbol_table_offset, symbol_count, file)
+
+            string_table = make_string_table(string_table_offset, file)
           end
+
+          optional_offset = header_offset + coff_header.fetch(:length)
+          optional_length = hv.(:size_of_optional_header)
+          optional_header = make_optional_header(optional_offset, optional_length, file)
+
+          section_table_offset = optional_offset + optional_length
+          section_count = hv.(:number_of_sections)
+
+          section_table = make_section_table(
+            section_table_offset, section_count, string_table, file)
+
           # TODO: other children
 
-          children
+          [dos_stub, magic, coff_header, optional_header,
+           section_table, symbol_table, string_table].compact
         end
       end
 
@@ -169,6 +173,7 @@ module Binshow
               length: SECTION_HEADER_LENGTH,
               type: :pe_section_header,
               lazy_children: true,
+              cross_ref: node.fetch(:cross_ref)
             }
             yield header
             offset += SECTION_HEADER_LENGTH
@@ -197,6 +202,21 @@ module Binshow
 
         def self.node_generate_children(node, file)
           fake_node = Binshow.fill_in_template(Template, node.fetch(:offset), file)
+
+          string_table_offset = node.fetch(:cross_ref).fetch(:string_table_offset)
+
+          # Look up the name in the string table if needed.
+          name_node = Binshow.find_child(fake_node, file, :name)
+          raw_name = name_node.fetch(:value)
+          if raw_name[0] == "/"
+            offset = raw_name[1,7].to_i
+            file.seek(string_table_offset + offset)
+            real_name = file.read_utf8_string()
+            name_node[:real_name] = real_name
+          else
+            name_node[:real_name] = raw_name
+          end
+
           fake_node.fetch(:children)
         end
       end
