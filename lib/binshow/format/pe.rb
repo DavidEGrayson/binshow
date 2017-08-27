@@ -17,6 +17,7 @@ module Binshow
         0x8664 => :amd64,
       }
       SECTION_HEADER_LENGTH = 40
+      COFF_SYMBOL_LENGTH = 18
 
       CoffHeaderTemplate = Binshow.prepare_template \
         length: COFF_HEADER_LENGTH,
@@ -74,6 +75,17 @@ module Binshow
           }
         end
 
+        def self.make_coff_header(offset, file)
+          coff_header = Binshow.fill_in_template(CoffHeaderTemplate, offset, file)
+
+          mt = coff_header.fetch(:children)[0]
+          code = mt.fetch(:value)
+          mt[:type] = :coff_machine_type
+          mt[:value] = MACHINE_TYPES.fetch(code, code)
+
+          coff_header
+        end
+
         def self.make_optional_header(offset, length, file)
           {
             offset: offset,
@@ -92,15 +104,18 @@ module Binshow
           }
         end
 
-        def self.make_coff_header(offset, file)
-          coff_header = Binshow.fill_in_template(CoffHeaderTemplate, offset, file)
+        def self.make_string_table(offset, file)
+          file.seek(offset)
+          length = file.read_u32
+          #strings = file.read(length - 4)
+          #raise if strings.size != length - 4
 
-          mt = coff_header.fetch(:children)[0]
-          code = mt.fetch(:value)
-          mt[:type] = :coff_machine_type
-          mt[:value] = MACHINE_TYPES.fetch(code, code)
-
-          coff_header
+          {
+            offset: offset,
+            length: length,
+            type: :pe_string_table,
+            # value: strings,
+          }
         end
 
         def self.node_generate_children(node, file)
@@ -115,18 +130,30 @@ module Binshow
           children << Binshow.make_magic(node_offset + signature_offset, SIGNATURE)
           children << coff_header = make_coff_header(header_offset, file)
 
+          hv = -> (n) { Binshow.find_child(coff_header, file, n).fetch(:value) }
+
           optional_offset = header_offset + coff_header.fetch(:length)
-          optional_length = Binshow.find_child(
-            coff_header, file, :size_of_optional_header).fetch(:value)
+          optional_length = hv.(:size_of_optional_header)
           children << make_optional_header(optional_offset, optional_length, file)
 
-          section_count = Binshow.find_child(
-            coff_header, file, :number_of_sections).fetch(:value)
           section_table_offset = optional_offset + optional_length
+          section_count = hv.(:number_of_sections)
 
           children << section_table =
             make_section_table(section_table_offset, section_count, file)
 
+          symbol_table_offset = hv.(:pointer_to_symbol_table)
+          symbol_count = hv.(:number_of_symbols)
+
+          if symbol_table_offset != 0
+            string_table_offset = symbol_table_offset + symbol_count * COFF_SYMBOL_LENGTH
+
+            #children << symbol_table =
+            #  make_symbol_table(symbol_table_offset, symbol_count, file)
+            # TODO:
+            children << string_table =
+              make_string_table(string_table_offset, file)
+          end
           # TODO: other children
 
           children
